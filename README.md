@@ -1,3 +1,4 @@
+
 # Distributed Data Parallel (DDP) Setup in Jupyter Notebooks
 
 ## Table of Contents
@@ -60,19 +61,26 @@ from tqdm import tqdm
 import csv
 from transformers import SamModel, SamProcessor
 from monai.losses import DiceLoss
-2. Define Helper Functions
-a. Finding a Free Port
+```
+
+### 2. Define Helper Functions
+
+#### a. Finding a Free Port
 
 DDP requires a master address and port for process group initialization. Use a helper function to dynamically find an available port.
 
+```python
 def find_free_port():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(('', 0))
         return s.getsockname()[1]
-b. Compute Metrics
+```
+
+#### b. Compute Metrics
 
 Functions to compute evaluation metrics like Dice Score, IoU, and Accuracy.
 
+```python
 def compute_dice_score(predicted, ground_truth):
     intersection = torch.sum(predicted * ground_truth)
     total = torch.sum(predicted) + torch.sum(ground_truth)
@@ -98,10 +106,13 @@ def compute_accuracy(predicted, ground_truth):
     if total_pixels == 0:
         return torch.tensor(0.0, device=predicted.device)
     return correct_pixels / total_pixels
-c. Visualization Function
+```
+
+#### c. Visualization Function
 
 Function to visualize training and validation results.
 
+```python
 def visualize_results(images, points, ground_truths, predicted_masks, epoch, batch_idx, is_training=True):
     for idx in range(min(len(images), 5)):
         image = images[idx].cpu().numpy()
@@ -128,9 +139,13 @@ def visualize_results(images, points, ground_truths, predicted_masks, epoch, bat
         plt.title('Predicted Mask')
         plt.axis('off')
         plt.show()
-3. Create Custom Dataset
+```
+
+### 3. Create Custom Dataset
+
 Define a custom dataset class to handle your specific data structure.
 
+```python
 class CustomDataset(Dataset):
     def __init__(self, images, labels, coordinates):
         self.images = images
@@ -152,9 +167,13 @@ def collate_fn(batch):
     labels = [torch.tensor(label, dtype=torch.float32) for label in labels]
     coords = [torch.tensor([(pt[0], pt[1]) for pt in coord], dtype=torch.float32) for coord in coords]
     return images, labels, coords
-4. Setup and Cleanup Functions
+```
+
+### 4. Setup and Cleanup Functions
+
 Initialize and destroy the distributed process group.
 
+```python
 def setup(rank, world_size, port):
     print(f"Rank {rank}: Initializing process group")
     os.environ['MASTER_ADDR'] = 'localhost'
@@ -164,8 +183,4 @@ def setup(rank, world_size, port):
 
 def cleanup():
     dist.destroy_process_group()
-5. Define Training Function
-Encapsulate the training logic within a function to ensure proper process management in the notebook.
-
-def train_ddp(rank, world_size, num_epochs, model_save_path, port, initial_percentage, entropy_derivative, dynamic_threshold, entropies, mean_derivative, std_derivative, k, visualize_training, visualize_validation, x_train, y_train, x_val, y_val, original_image_indices):
-    print(f"Rank {rank}: Starting train
+```
