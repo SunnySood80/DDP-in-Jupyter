@@ -7,10 +7,11 @@
 3. [Setup Guide](#setup-guide)
     - [1. Import Necessary Libraries](#1-import-necessary-libraries)
     - [2. Define Helper Functions](#2-define-helper-functions)
+        - [a. Finding a Free Port](#a-finding-a-free-port)
+        - [b. Setup and Cleanup Functions](#b-setup-and-cleanup-functions)
     - [3. Create Custom Dataset](#3-create-custom-dataset)
-    - [4. Setup and Cleanup Functions](#4-setup-and-cleanup-functions)
-    - [5. Define Training Function](#5-define-training-function)
-    - [6. Initialize and Run DDP Training](#6-initialize-and-run-ddp-training)
+    - [4. Define Training Function](#4-define-training-function)
+    - [5. Initialize and Run DDP Training](#5-initialize-and-run-ddp-training)
 4. [Best Practices and Recommendations](#best-practices-and-recommendations)
 5. [Complete Example Code](#complete-example-code)
 6. [Conclusion](#conclusion)
@@ -20,20 +21,21 @@
 
 ## Introduction
 
-Distributed Data Parallel (DDP) is a powerful feature in PyTorch that enables efficient training of models across multiple GPUs. While DDP is typically implemented in standalone Python scripts, it can also be effectively utilized within Jupyter Notebooks. This guide provides a detailed walkthrough to set up DDP in a Jupyter Notebook environment, ensuring seamless multi-GPU training without deadlocks or bottlenecks.
+Distributed Data Parallel (DDP) is a highly efficient feature in PyTorch that allows for parallel training of models across multiple GPUs. While DDP is commonly used in standalone Python scripts, it can also be effectively implemented within Jupyter Notebooks. This guide provides a step-by-step approach to setting up DDP in a Jupyter Notebook environment, facilitating scalable and high-performance model training.
 
 ---
 
 ## Prerequisites
 
-Before proceeding, ensure the following:
+Before proceeding, ensure you have the following:
 
-- **Hardware**: Access to a multi-GPU system.
+- **Hardware**: A multi-GPU system.
 - **Software**:
   - Python 3.x
   - PyTorch with CUDA support
-  - Necessary Python libraries: `torch`, `torch.distributed`, `torch.multiprocessing`, `torch.nn.parallel`, `torch.utils.data`, `numpy`, `matplotlib`, etc.
-- **Environment**: Jupyter Notebook installed and running in an environment where all required libraries are accessible.
+  - Jupyter Notebook
+  - Necessary Python libraries: `torch`, `torch.distributed`, `torch.multiprocessing`, `torch.nn.parallel`, `torch.utils.data`, `numpy`, `matplotlib`, `tqdm`, etc.
+- **Environment**: Jupyter Notebook running in an environment where all required libraries are installed and accessible.
 
 ---
 
@@ -41,26 +43,22 @@ Before proceeding, ensure the following:
 
 ### 1. Import Necessary Libraries
 
-Begin by importing all the required libraries, including those for DDP, data handling, model training, and visualization.
+Begin by importing all required libraries, including those for DDP, data handling, model training, and visualization.
 
 ```python
 import os
 import socket
-import numpy as np
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.utils.data import Dataset, DataLoader, Subset
+from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.distributed import DistributedSampler
 import torch.nn as nn
 import torch.optim as optim
 from torch.cuda.amp import autocast, GradScaler
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-import csv
-from transformers import SamModel, SamProcessor
-from monai.losses import DiceLoss
 ```
 
 ### 2. Define Helper Functions
@@ -76,69 +74,19 @@ def find_free_port():
         return s.getsockname()[1]
 ```
 
-#### b. Compute Metrics
+#### b. Setup and Cleanup Functions
 
-Functions to compute evaluation metrics like Dice Score, IoU, and Accuracy.
-
-```python
-def compute_dice_score(predicted, ground_truth):
-    intersection = torch.sum(predicted * ground_truth)
-    total = torch.sum(predicted) + torch.sum(ground_truth)
-    dice_score = (2 * intersection + 1e-6) / (total + 1e-6)
-    return dice_score
-
-def compute_iou(predicted, ground_truth):
-    intersection = torch.logical_and(predicted, ground_truth)
-    union = torch.logical_or(predicted, ground_truth)
-    union_sum = torch.sum(union)
-    if union_sum == 0:
-        return torch.tensor(0.0, device=predicted.device)
-    iou_score = torch.sum(intersection).float() / union_sum.float()
-    return iou_score
-
-def compute_accuracy(predicted, ground_truth):
-    if predicted.numel() == 0 or ground_truth.numel() == 0:
-        return torch.tensor(0.0, device=predicted.device)
-    pred_flat = predicted.view(-1).bool()
-    gt_flat = ground_truth.view(-1).bool()
-    correct_pixels = (pred_flat == gt_flat).sum().float()
-    total_pixels = torch.tensor(pred_flat.numel(), dtype=torch.float32, device=predicted.device)
-    if total_pixels == 0:
-        return torch.tensor(0.0, device=predicted.device)
-    return correct_pixels / total_pixels
-```
-
-#### c. Visualization Function
-
-Function to visualize training and validation results.
+Initialize and destroy the distributed process group.
 
 ```python
-def visualize_results(images, points, ground_truths, predicted_masks, epoch, batch_idx, is_training=True):
-    for idx in range(min(len(images), 5)):
-        image = images[idx].cpu().numpy()
-        if image.shape[0] == 3:
-            image = image.transpose(1, 2, 0)
-        else:
-            image = image.squeeze()
+def setup(rank, world_size, port):
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = str(port)
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
+    print(f"Rank {rank}: Process group initialized.")
 
-        plt.figure(figsize=(18, 6))
-        plt.subplot(1, 3, 1)
-        plt.imshow(image)
-        if points[idx].numel() > 0:
-            plt.scatter(points[idx][:, 0].cpu().numpy(), points[idx][:, 1].cpu().numpy(), color='red', marker='x')
-        plt.title(f"{'Training' if is_training else 'Validation'} Image with Points")
-        plt.axis('off')
-
-        plt.subplot(1, 3, 2)
-        plt.imshow(ground_truths[idx].cpu().numpy().squeeze(), cmap='gray')
-        plt.title('Ground Truth Mask')
-        plt.axis('off')
-
-        plt.subplot(1, 3, 3)
-        plt.imshow(predicted_masks[idx].cpu().numpy().squeeze(), cmap='gray')
-        plt.title('Predicted Mask')
-        plt.axis('off')
-        plt.show()
+def cleanup():
+    dist.destroy_process_group()
 ```
 
 ### 3. Create Custom Dataset
@@ -147,40 +95,105 @@ Define a custom dataset class to handle your specific data structure.
 
 ```python
 class CustomDataset(Dataset):
-    def __init__(self, images, labels, coordinates):
-        self.images = images
+    def __init__(self, data, labels):
+        self.data = data
         self.labels = labels
-        self.coordinates = coordinates
 
     def __len__(self):
-        return len(self.images)
+        return len(self.data)
 
     def __getitem__(self, idx):
-        image = self.images[idx]
-        label = self.labels[idx]
-        coords = [(pt[2], pt[1]) for pt in self.coordinates if pt[0] == idx]
-        return image, label, coords
-
-def collate_fn(batch):
-    images, labels, coords = zip(*batch)
-    images = [torch.tensor(image, dtype=torch.float32) for image in images]
-    labels = [torch.tensor(label, dtype=torch.float32) for label in labels]
-    coords = [torch.tensor([(pt[0], pt[1]) for pt in coord], dtype=torch.float32) for coord in coords]
-    return images, labels, coords
+        return self.data[idx], self.labels[idx]
 ```
 
-### 4. Setup and Cleanup Functions
+### 4. Define Training Function
 
-Initialize and destroy the distributed process group.
+Encapsulate the training logic within a function to ensure proper process management in the notebook.
 
 ```python
-def setup(rank, world_size, port):
-    print(f"Rank {rank}: Initializing process group")
-    os.environ['MASTER_ADDR'] = 'localhost'
-    os.environ['MASTER_PORT'] = str(port)
-    dist.init_process_group("nccl", rank=rank, world_size=world_size)
-    print(f"Rank {rank}: Process group initialized")
-
-def cleanup():
-    dist.destroy_process_group()
+def train_ddp(rank, world_size, epochs, port, data, labels):
+    setup(rank, world_size, port)
+    torch.manual_seed(0)
+    
+    device = torch.device(f'cuda:{rank}' if torch.cuda.is_available() else 'cpu')
+    
+    # Initialize model
+    model = nn.Linear(data.shape[1], 1).to(device)
+    model = DDP(model, device_ids=[rank])
+    
+    # Define loss and optimizer
+    criterion = nn.BCEWithLogitsLoss()
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    
+    # Create dataset and dataloader with DistributedSampler
+    dataset = CustomDataset(data, labels)
+    sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=32, sampler=sampler)
+    
+    # Training loop
+    for epoch in range(epochs):
+        sampler.set_epoch(epoch)
+        model.train()
+        epoch_loss = 0.0
+        for batch_data, batch_labels in dataloader:
+            batch_data = batch_data.to(device)
+            batch_labels = batch_labels.to(device).unsqueeze(1)
+            
+            optimizer.zero_grad()
+            outputs = model(batch_data)
+            loss = criterion(outputs, batch_labels)
+            loss.backward()
+            optimizer.step()
+            
+            epoch_loss += loss.item()
+        
+        print(f"Rank {rank}, Epoch {epoch+1}/{epochs}, Loss: {epoch_loss/len(dataloader):.4f}")
+    
+    cleanup()
 ```
+
+### 5. Initialize and Run DDP Training
+
+Define the main function to set up and initiate the DDP training process.
+
+```python
+def run_ddp_training():
+    # Example data loading (replace with actual data)
+    # Ensure data and labels are torch tensors
+    data = torch.randn(1000, 10)  # 1000 samples, 10 features
+    labels = torch.randint(0, 2, (1000,)).float()  # Binary labels
+    
+    world_size = torch.cuda.device_count()
+    epochs = 10
+    port = find_free_port()
+    
+    processes = []
+    for rank in range(world_size):
+        p = mp.Process(target=train_ddp, args=(rank, world_size, epochs, port, data, labels))
+        p.start()
+        processes.append(p)
+    
+    for p in processes:
+        p.join()
+    
+    print("DDP training completed.")
+```
+
+### Run the training
+
+```python
+run_ddp_training()
+```
+
+---
+
+## Conclusion
+
+Setting up Distributed Data Parallel (DDP) in a Jupyter Notebook involves encapsulating multiprocessing logic within functions, properly initializing distributed process groups, and managing data loading efficiently. By following the structured approach outlined in this guide, you can leverage multi-GPU systems effectively within an interactive notebook environment, ensuring scalable and high-performance model training.
+
+---
+
+## Contact and Support
+
+For further assistance or questions regarding the DDP setup in Jupyter Notebooks, please reach out to the team or refer to the official PyTorch Distributed Data Parallel documentation.
+
