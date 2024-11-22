@@ -13,9 +13,7 @@
     - [4. Define Training Function](#4-define-training-function)
     - [5. Initialize and Run DDP Training](#5-initialize-and-run-ddp-training)
 4. [Best Practices and Recommendations](#best-practices-and-recommendations)
-5. [Complete Example Code](#complete-example-code)
-6. [Conclusion](#conclusion)
-7. [Contact and Support](#contact-and-support)
+
 
 ---
 
@@ -198,14 +196,3 @@ run_ddp_training()
 - **Implement Early Stopping and Checkpointing**: Save resources and optimize training time.
 
 ---
-
-## Conclusion
-
-By following this guide, you can implement PyTorch's Distributed Data Parallel (DDP) within Jupyter Notebooks to fully leverage multi-GPU systems. This setup ensures scalability and efficiency in deep learning model training.
-
----
-
-## Contact and Support
-
-For assistance, refer to the official [PyTorch DDP documentation](https://pytorch.org/tutorials/intermediate/ddp_tutorial.html) or reach out to the team.
-
