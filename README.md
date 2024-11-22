@@ -187,13 +187,25 @@ run_ddp_training()
 
 ---
 
+## Best Practices and Recommendations
+
+- **Encapsulate DDP Logic Within Functions**: Prevent unintended recursive executions in Jupyter Notebooks by containing all DDP-related code within functions.
+- **Use `torch.multiprocessing` for Process Spawning**: Ensure efficient GPU utilization and isolation.
+- **Manage Data Loading with `DistributedSampler`**: Avoid data overlap by assigning unique subsets to each process.
+- **Restrict Visualization to Rank 0**: Prevent redundant outputs across GPUs.
+- **Dynamic Port Allocation**: Prevent port conflicts during process initialization.
+- **Monitor GPU Utilization**: Use tools like `nvidia-smi` to ensure balanced workload distribution.
+- **Implement Early Stopping and Checkpointing**: Save resources and optimize training time.
+
+---
+
 ## Conclusion
 
-Setting up Distributed Data Parallel (DDP) in a Jupyter Notebook involves encapsulating multiprocessing logic within functions, properly initializing distributed process groups, and managing data loading efficiently. By following the structured approach outlined in this guide, you can leverage multi-GPU systems effectively within an interactive notebook environment, ensuring scalable and high-performance model training.
+By following this guide, you can implement PyTorch's Distributed Data Parallel (DDP) within Jupyter Notebooks to fully leverage multi-GPU systems. This setup ensures scalability and efficiency in deep learning model training.
 
 ---
 
 ## Contact and Support
 
-For further assistance or questions regarding the DDP setup in Jupyter Notebooks, please reach out to the team or refer to the official PyTorch Distributed Data Parallel documentation.
+For assistance, refer to the official [PyTorch DDP documentation](https://pytorch.org/tutorials/intermediate/ddp_tutorial.html) or reach out to the team.
 
