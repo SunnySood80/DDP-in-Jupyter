@@ -28,7 +28,7 @@
 
 ## Introduction
 
-Distributed Data Parallel (DDP) is a highly efficient feature in PyTorch that allows for parallel training of models across multiple GPUs. While DDP is commonly used in standalone Python scripts, it can also be effectively implemented within Jupyter Notebooks. This guide provides a step-by-step approach to setting up DDP in a Jupyter Notebook environment, facilitating scalable and high-performance model training.
+Distributed Data Parallel (DDP) is a highly efficient feature in PyTorch that allows for parallel training of models across multiple GPUs. While DDP is commonly used in standalone Python scripts, it can also be implemented within Jupyter Notebooks (which aren't typically supported for DDP). This guide provides a step-by-step approach to setting up DDP in a Jupyter Notebook environment for scalable and high-performance model training.
 
 ---
 
