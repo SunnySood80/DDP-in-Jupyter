@@ -1,6 +1,8 @@
 
 # Distributed Data Parallel (DDP) Setup in Jupyter Notebooks
 
+[Best Practices and Recommendations](#best-practices-and-recommendations)
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Prerequisites](#prerequisites)
@@ -12,8 +14,15 @@
     - [3. Create Custom Dataset](#3-create-custom-dataset)
     - [4. Define Training Function](#4-define-training-function)
     - [5. Initialize and Run DDP Training](#5-initialize-and-run-ddp-training)
-4. [Best Practices and Recommendations](#best-practices-and-recommendations)
 
+
+## Best Practices and Recommendations
+
+- **Encapsulate DDP Logic Within Functions**: Prevent unintended recursive executions in Jupyter Notebooks by containing all DDP-related code within functions.
+- **Use `torch.multiprocessing` for Process Spawning**: Ensure efficient GPU utilization and isolation.
+- **Manage Data Loading with `DistributedSampler`**: Avoid data overlap by assigning unique subsets to each process.
+- **Restrict Visualization to Rank 0**: Prevent redundant outputs across GPUs.
+- **Dynamic Port Allocation**: Prevent port conflicts during process initialization.
 
 ---
 
@@ -185,13 +194,7 @@ run_ddp_training()
 
 ---
 
-## Best Practices and Recommendations
 
-- **Encapsulate DDP Logic Within Functions**: Prevent unintended recursive executions in Jupyter Notebooks by containing all DDP-related code within functions.
-- **Use `torch.multiprocessing` for Process Spawning**: Ensure efficient GPU utilization and isolation.
-- **Manage Data Loading with `DistributedSampler`**: Avoid data overlap by assigning unique subsets to each process.
-- **Restrict Visualization to Rank 0**: Prevent redundant outputs across GPUs.
-- **Dynamic Port Allocation**: Prevent port conflicts during process initialization.
 - **Monitor GPU Utilization**: Use tools like `nvidia-smi` to ensure balanced workload distribution.
 - **Implement Early Stopping and Checkpointing**: Save resources and optimize training time.
 
